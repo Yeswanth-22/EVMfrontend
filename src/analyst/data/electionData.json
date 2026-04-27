@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "totalRegisteredVoters": 0,
+    "totalVotesCast": 0,
+    "participationPercentage": 0,
+    "leadingCandidate": "N/A"
+  },
+  "votesPerCandidate": [],
+  "voterParticipation": [
+    { "name": "Voted", "value": 0 },
+    { "name": "Not Voted", "value": 0 }
+  ],
+  "votingTrend": [],
+  "regionResults": [],
+  "recentActivity": []
+}
