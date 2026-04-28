@@ -1,21 +1,34 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_URL } from "../api";
+import { API_URL, API_BASE, GOOGLE_AUTH_URL } from "../api";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || `${API_URL}/api`).replace(/\/$/, "");
-const AUTH_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
 const AUTH_STORAGE_KEY = "ems_auth_v2";
-const TOKEN_REFRESH_THRESHOLD = 60000; // 1 minute
+const TOKEN_REFRESH_THRESHOLD = 60000; // 1 min before expiry
 
-const asFailure = (message) => ({ success: false, message, data: null });
+const asFailure = (message) => ({
+  success: false,
+  message,
+  data: null,
+});
 
 export const AuthContext = createContext({});
 
+// ==============================
+// Local Storage Helpers
+// ==============================
 const readAuth = () => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) return { token: null, user: null };
+
+  if (!raw) {
+    return { token: null, user: null };
+  }
+
   try {
     const parsed = JSON.parse(raw);
-    return { token: parsed?.token || null, user: parsed?.user || null };
+
+    return {
+      token: parsed?.token || null,
+      user: parsed?.user || null,
+    };
   } catch {
     return { token: null, user: null };
   }
@@ -26,9 +39,19 @@ const writeAuth = (token, user) => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return;
   }
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user }));
+
+  localStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({
+      token,
+      user,
+    })
+  );
 };
 
+// ==============================
+// Provider
+// ==============================
 export const AuthProvider = ({ children }) => {
   const auth = readAuth();
 
@@ -43,47 +66,26 @@ export const AuthProvider = ({ children }) => {
 
   const refreshTimerRef = useRef(null);
 
-  const setupTokenRefresh = useCallback(
-    (activeToken) => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      if (!activeToken) return;
-      try {
-        const parts = activeToken.split(".");
-        if (parts.length !== 3) return;
-        const decoded = JSON.parse(atob(parts[1]));
-        const expiresAt = decoded?.exp ? decoded.exp * 1000 : 0;
-        const expiresIn = expiresAt - Date.now();
-        if (expiresIn <= 0) {
-          setToken(null);
-          setCurrentUser(null);
-          return;
-        }
-        const refreshIn = Math.max(expiresIn - TOKEN_REFRESH_THRESHOLD, 1000);
-        refreshTimerRef.current = setTimeout(async () => {
-          const refreshed = await refreshTokenInternal(activeToken);
-          if (refreshed && refreshed.data?.token) {
-            setToken(refreshed.data.token);
-            setupTokenRefresh(refreshed.data.token);
-          } else {
-            setToken(null);
-            setCurrentUser(null);
-          }
-        }, refreshIn);
-      } catch (err) {
-        console.error("setupTokenRefresh error", err);
-      }
-    },
-    []
-  );
-
+  // ==============================
+  // Token Refresh
+  // ==============================
   const refreshTokenInternal = useCallback(async (activeToken) => {
     try {
       const res = await fetch(`${API_BASE}/auth/refresh`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${activeToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${activeToken}`,
+        },
+        credentials: "include",
       });
+
       const payload = await res.json().catch(() => null);
-      if (!res.ok) return null;
+
+      if (!res.ok || !payload) {
+        return null;
+      }
+
       return payload;
     } catch (err) {
       console.error("refreshTokenInternal error", err);
@@ -91,34 +93,110 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const setupTokenRefresh = useCallback(
+    (activeToken) => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+
+      if (!activeToken) {
+        return;
+      }
+
+      try {
+        const parts = activeToken.split(".");
+
+        if (parts.length !== 3) {
+          return;
+        }
+
+        const decoded = JSON.parse(atob(parts[1]));
+
+        const expiresAt = decoded?.exp ? decoded.exp * 1000 : 0;
+
+        const expiresIn = expiresAt - Date.now();
+
+        if (expiresIn <= 0) {
+          logout();
+          return;
+        }
+
+        const refreshIn = Math.max(
+          expiresIn - TOKEN_REFRESH_THRESHOLD,
+          1000
+        );
+
+        refreshTimerRef.current = setTimeout(async () => {
+          const refreshed = await refreshTokenInternal(activeToken);
+
+          if (refreshed?.data?.token) {
+            setToken(refreshed.data.token);
+            setupTokenRefresh(refreshed.data.token);
+          } else {
+            logout();
+          }
+        }, refreshIn);
+      } catch (err) {
+        console.error("setupTokenRefresh error", err);
+      }
+    },
+    [refreshTokenInternal]
+  );
+
+  // ==============================
+  // Core Request
+  // ==============================
   const request = useCallback(
     async (path, options = {}, explicitToken) => {
       const activeToken = explicitToken ?? token;
-      const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-      if (activeToken) headers.Authorization = `Bearer ${activeToken}`;
-      const url = `${API_BASE}${path}`;
-      console.debug("API request", { url, options: { ...options, headers } });
+
+      const headers = {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      };
+
+      if (activeToken) {
+        headers.Authorization = `Bearer ${activeToken}`;
+      }
+
       try {
-        const res = await fetch(url, { ...options, headers });
+        const res = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers,
+          credentials: "include",
+        });
+
         const payload = await res.json().catch(() => null);
-        console.debug("API response", { url, status: res.status, payload });
+
         if (!res.ok) {
           if (res.status === 401) {
-            setToken(null);
-            setCurrentUser(null);
+            logout();
           }
-          return asFailure(payload?.message || `Request failed with status ${res.status}.`);
+
+          return asFailure(
+            payload?.message || `Request failed (${res.status})`
+          );
         }
-        if (payload == null) return asFailure("Invalid server response.");
+
+        if (!payload) {
+          return asFailure("Invalid server response.");
+        }
+
         return payload;
       } catch (err) {
-        console.error("request error", err);
-        return asFailure("Unable to connect to backend. Please check server connection.");
+        console.error("API request error", err);
+
+        return asFailure(
+          "Unable to connect to backend. Please check server connection."
+        );
       }
     },
     [token]
   );
 
+  // ==============================
+  // Helpers
+  // ==============================
   const resolveList = (res) => {
     if (!res) return [];
     if (res.success && Array.isArray(res.data)) return res.data;
@@ -126,20 +204,30 @@ export const AuthProvider = ({ children }) => {
     return [];
   };
 
+  // ==============================
+  // Dashboard Data
+  // ==============================
   const loadAllData = useCallback(
     async (authToken) => {
       const activeToken = authToken ?? token;
-      if (!activeToken) return;
 
-      const [usersRes, incidentsRes, fraudRes, analystRes, electionRes] = await Promise.all([
+      if (!activeToken) {
+        return;
+      }
+
+      const [
+        usersRes,
+        incidentsRes,
+        fraudRes,
+        analystRes,
+        electionRes,
+      ] = await Promise.all([
         request("/admin/users", {}, activeToken),
         request("/admin/incidents", {}, activeToken),
         request("/admin/fraud-reports", {}, activeToken),
         request("/admin/analyst-reports", {}, activeToken),
         request("/admin/election-results", {}, activeToken),
       ]);
-
-      console.debug("loadAllData results", { usersRes, incidentsRes, fraudRes, analystRes, electionRes });
 
       setUsers(resolveList(usersRes));
       setIncidents(resolveList(incidentsRes));
@@ -150,120 +238,169 @@ export const AuthProvider = ({ children }) => {
     [request, token]
   );
 
+  // ==============================
+  // Persist Auth
+  // ==============================
   useEffect(() => {
     writeAuth(token, currentUser);
   }, [token, currentUser]);
 
+  // ==============================
+  // Bootstrap
+  // ==============================
   useEffect(() => {
     const bootstrap = async () => {
-      if (!token) return;
-      // attempt to validate token and load user/data
-      const me = await request("/auth/me");
-      if (!me.success) {
-        setToken(null);
-        setCurrentUser(null);
+      if (!token) {
         return;
       }
+
+      const me = await request("/auth/me");
+
+      if (!me.success) {
+        logout();
+        return;
+      }
+
       setCurrentUser(me.data);
+
       await loadAllData(token);
+
       setupTokenRefresh(token);
     };
+
     bootstrap();
-    return () => { if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current); };
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
   }, [token, request, loadAllData, setupTokenRefresh]);
 
-  const register = async (userData) => request("/auth/register", { method: "POST", body: JSON.stringify(userData) });
+  // ==============================
+  // AUTH METHODS
+  // ==============================
+  const register = async (userData) =>
+    request("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
 
-  const sendRegistrationOtp = async (email) => request("/auth/send-otp", { method: "POST", body: JSON.stringify({ email }) });
-  const verifyRegistrationOtp = async (email, otp) => request("/auth/verify-otp", { method: "POST", body: JSON.stringify({ email, otp }) });
+  const sendRegistrationOtp = async (email) =>
+    request("/auth/otp/send", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+
+  const verifyRegistrationOtp = async (email, otp) =>
+    request("/auth/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
 
   const login = async (email, password) => {
-    const result = await request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    const result = await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+
     if (!result.success || !result.data?.token) {
       return asFailure(result.message || "Login failed.");
     }
+
     setToken(result.data.token);
     setCurrentUser(result.data.user);
+
     await loadAllData(result.data.token);
+
     setupTokenRefresh(result.data.token);
-    return { success: true, message: result.message || "Login successful.", user: result.data.user, token: result.data.token };
+
+    return {
+      success: true,
+      message: result.message || "Login successful.",
+      user: result.data.user,
+      token: result.data.token,
+    };
   };
 
   const loginWithGoogle = () => {
-    window.location.href = `${API_URL}/oauth2/authorization/google`;
+    window.location.href = GOOGLE_AUTH_URL;
   };
 
   const logout = () => {
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+
     setToken(null);
     setCurrentUser(null);
+
     setUsers([]);
     setIncidents([]);
     setFraudReports([]);
     setAnalystReports([]);
     setElectionResults([]);
+
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
-  // Admin helpers
-  const createUser = async (payload) => {
-    const res = await request("/admin/users", { method: "POST", body: JSON.stringify(payload) });
-    if (res.success && res.data) setUsers((p) => [res.data, ...p]);
-    return res;
-  };
-
-  const updateUser = async (userId, updates) => {
-    const res = await request(`/admin/users/${userId}`, { method: "PUT", body: JSON.stringify(updates) });
-    if (res.success && res.data) setUsers((p) => p.map((u) => (u.id === userId ? res.data : u)));
-    return res;
-  };
-
-  const deleteUser = async (userId) => {
-    const res = await request(`/admin/users/${userId}`, { method: "DELETE" });
-    if (res.success) setUsers((p) => p.filter((u) => u.id !== userId));
-    return res;
-  };
-
-  const updateFraudReport = async (id, updates) => {
-    const res = await request(`/admin/fraud-reports/${id}`, { method: "PUT", body: JSON.stringify(updates) });
-    if (res.success && res.data) setFraudReports((p) => p.map((r) => (r.id === id ? res.data : r)));
-    return res;
-  };
-
-  const deleteFraudReport = async (id) => {
-    const res = await request(`/admin/fraud-reports/${id}`, { method: "DELETE" });
-    if (res.success) setFraudReports((p) => p.filter((r) => r.id !== id));
-    return res;
-  };
-
+  // ==============================
+  // Dashboard Stats
+  // ==============================
   const dashboardStats = useMemo(
-    () => ({ users: users.length, incidents: incidents.length, fraudReports: fraudReports.length, analystReports: analystReports.length, electionResults: electionResults.length }),
-    [users.length, incidents.length, fraudReports.length, analystReports.length, electionResults.length]
+    () => ({
+      users: users.length,
+      incidents: incidents.length,
+      fraudReports: fraudReports.length,
+      analystReports: analystReports.length,
+      electionResults: electionResults.length,
+    }),
+    [
+      users.length,
+      incidents.length,
+      fraudReports.length,
+      analystReports.length,
+      electionResults.length,
+    ]
   );
 
+  // ==============================
+  // Context Value
+  // ==============================
   const value = useMemo(
     () => ({
-      users,
+      API_URL,
+      token,
       currentUser,
+      users,
       incidents,
       fraudReports,
       analystReports,
       electionResults,
       dashboardStats,
+
       register,
       sendRegistrationOtp,
       verifyRegistrationOtp,
       login,
       loginWithGoogle,
       logout,
-      createUser,
-      updateUser,
-      deleteUser,
-      updateFraudReport,
-      deleteFraudReport,
     }),
-    [users, currentUser, incidents, fraudReports, analystReports, electionResults, dashboardStats]
+    [
+      token,
+      currentUser,
+      users,
+      incidents,
+      fraudReports,
+      analystReports,
+      electionResults,
+      dashboardStats,
+    ]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
