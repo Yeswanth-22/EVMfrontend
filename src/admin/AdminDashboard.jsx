@@ -23,14 +23,20 @@ const normalizeLocation = (value) => {
 };
 
 function AdminDashboard() {
+  /* =========================
+     SAFE AUTH CONTEXT
+  ========================= */
   const {
-    users,
-    currentUser,
-    token,
-    dashboardStats,
-    incidents,
-    fraudReports,
-    analystReports,
+    users = [],
+    currentUser = null,
+    token = null,
+    dashboardStats = {
+      users: 0,
+      incidents: 0,
+    },
+    incidents = [],
+    fraudReports = [],
+    analystReports = [],
     createUser,
     updateUser,
     deleteUser,
@@ -41,11 +47,34 @@ function AdminDashboard() {
   const [activeSection, setActiveSection] = useState("overview");
   const [showDebug, setShowDebug] = useState(false);
 
+  /* =========================
+     LOADING GUARD
+  ========================= */
+  if (!currentUser) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: "1.2rem",
+        }}
+      >
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  /* =========================
+     USERS BY ROLE
+  ========================= */
   const usersByRole = useMemo(
     () =>
       users.reduce(
         (accumulator, user) => {
-          const safeRole = user.role || "citizen";
+          const safeRole = (user.role || "citizen").toLowerCase();
+
           if (accumulator[safeRole] === undefined) {
             return accumulator;
           }
@@ -60,11 +89,15 @@ function AdminDashboard() {
     [users]
   );
 
+  /* =========================
+     FRAUD STATUS
+  ========================= */
   const fraudByStatus = useMemo(
     () =>
       fraudReports.reduce(
         (accumulator, report) => {
           const safeStatus = report.status || "submitted";
+
           if (accumulator[safeStatus] === undefined) {
             return accumulator;
           }
@@ -79,11 +112,15 @@ function AdminDashboard() {
     [fraudReports]
   );
 
+  /* =========================
+     INCIDENT SEVERITY
+  ========================= */
   const incidentsBySeverity = useMemo(
     () =>
       incidents.reduce(
         (accumulator, incident) => {
           const safeSeverity = incident.severity || "medium";
+
           if (accumulator[safeSeverity] === undefined) {
             return accumulator;
           }
@@ -98,6 +135,9 @@ function AdminDashboard() {
     [incidents]
   );
 
+  /* =========================
+     HOTSPOTS
+  ========================= */
   const hotspots = useMemo(() => {
     const locationMap = {};
 
@@ -117,12 +157,16 @@ function AdminDashboard() {
       .slice(0, 6);
   }, [incidents, fraudReports]);
 
+  /* =========================
+     RECENT FRAUD REPORTS
+  ========================= */
   const recentFraudReports = useMemo(
     () =>
       [...fraudReports]
         .sort(
           (first, second) =>
-            new Date(second.createdAt || 0).getTime() - new Date(first.createdAt || 0).getTime()
+            new Date(second.createdAt || 0).getTime() -
+            new Date(first.createdAt || 0).getTime()
         )
         .slice(0, 5),
     [fraudReports]
@@ -137,49 +181,18 @@ function AdminDashboard() {
 
   const fraudBars = [
     { key: "submitted", label: "Submitted", value: fraudByStatus.submitted },
-    { key: "under-review", label: "Under Review", value: fraudByStatus["under-review"] },
+    {
+      key: "under-review",
+      label: "Under Review",
+      value: fraudByStatus["under-review"],
+    },
     { key: "verified", label: "Verified", value: fraudByStatus.verified },
     { key: "rejected", label: "Rejected", value: fraudByStatus.rejected },
   ];
 
-  const severityBars = [
-    { key: "high", label: "High", value: incidentsBySeverity.high },
-    { key: "medium", label: "Medium", value: incidentsBySeverity.medium },
-    { key: "low", label: "Low", value: incidentsBySeverity.low },
-  ];
-
-  const hotspotMax = hotspots.length ? Math.max(...hotspots.map((item) => item.count)) : 0;
-
-  const adminHighlights = [
-    {
-      key: "users",
-      label: "Total Users",
-      value: dashboardStats.users,
-      note: "Active accounts",
-      icon: "👥",
-    },
-    {
-      key: "incidents",
-      label: "Open Incidents",
-      value: dashboardStats.incidents,
-      note: "Observer logs",
-      icon: "🚨",
-    },
-    {
-      key: "fraud",
-      label: "Pending Fraud",
-      value: fraudByStatus.submitted + fraudByStatus["under-review"],
-      note: "Needs review",
-      icon: "🛡️",
-    },
-    {
-      key: "analysts",
-      label: "Analyst Reports",
-      value: analystReports.length,
-      note: "Intelligence briefs",
-      icon: "📊",
-    },
-  ];
+  const hotspotMax = hotspots.length
+    ? Math.max(...hotspots.map((item) => item.count))
+    : 0;
 
   const sections = [
     { key: "overview", label: "Overview" },
@@ -200,214 +213,141 @@ function AdminDashboard() {
         />
 
         <main className="dashboard-main">
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: "1rem",
+            }}
+          >
             <button
               className="btn btn-outline"
               type="button"
               onClick={() => setShowDebug((s) => !s)}
-              title="Toggle debug view"
             >
               {showDebug ? "Hide Debug" : "Show Debug"}
             </button>
           </div>
 
-          {showDebug ? (
-            <section className="panel" style={{ marginBottom: "1rem" }}>
+          {showDebug && (
+            <section className="panel">
               <h4>Debug: Auth Context</h4>
-              <div style={{ maxHeight: 240, overflow: "auto", background: "#0b1220", color: "#d6e6ff", padding: "0.75rem", borderRadius: 6 }}>
-                <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
-{JSON.stringify({ token, currentUser, dashboardStats, usersCount: users.length, incidentsCount: incidents.length, fraudCount: fraudReports.length, analystCount: analystReports.length }, null, 2)}
-                </pre>
-              </div>
+              <pre>
+                {JSON.stringify(
+                  {
+                    token,
+                    currentUser,
+                    dashboardStats,
+                    usersCount: users.length,
+                    incidentsCount: incidents.length,
+                    fraudCount: fraudReports.length,
+                    analystCount: analystReports.length,
+                  },
+                  null,
+                  2
+                )}
+              </pre>
             </section>
-          ) : null}
-          {activeSection === "overview" ? (
+          )}
+
+          {activeSection === "overview" && (
             <>
-              <section className="panel analyst-overview-panel">
-                <div className="analyst-overview-head">
-                  <div>
-                    <h3>Administrative Command Center</h3>
-                    <p>Monitor platform health, risk workflow, and user distribution in real time.</p>
-                  </div>
-                  <div className="analyst-live-chip">
-                    <span>Pending Fraud Cases</span>
-                    <strong>{fraudByStatus.submitted + fraudByStatus["under-review"]}</strong>
-                  </div>
-                </div>
+              <section className="panel">
+                <h3>Administrative Command Center</h3>
 
                 <div className="admin-metric-grid">
-                  {adminHighlights.map((item) => (
-                    <article className="admin-metric-card" key={item.key}>
-                      <div className="admin-metric-icon" aria-hidden="true">
-                        {item.icon}
-                      </div>
-                      <div>
-                        <span>{item.label}</span>
-                        <strong>{item.value}</strong>
-                        <small>{item.note}</small>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+                  <article>
+                    <strong>Total Users:</strong> {dashboardStats.users}
+                  </article>
 
-                <div className="analyst-kpi-grid">
-                  <article className="analyst-kpi-card">
-                    <span>Total Users</span>
-                    <strong>{dashboardStats.users}</strong>
+                  <article>
+                    <strong>Open Incidents:</strong> {dashboardStats.incidents}
                   </article>
-                  <article className="analyst-kpi-card">
-                    <span>Open Incidents</span>
-                    <strong>{dashboardStats.incidents}</strong>
-                  </article>
-                  <article className="analyst-kpi-card">
-                    <span>Analyst Reports</span>
-                    <strong>{analystReports.length}</strong>
-                  </article>
-                </div>
 
-                <div className="pro-toolbar">
-                  <button className="btn btn-primary" type="button" onClick={() => setActiveSection("users")}>
-                    Manage Users
-                  </button>
-                  <button className="btn btn-outline" type="button" onClick={() => setActiveSection("fraud")}>
-                    Review Fraud Desk
-                  </button>
+                  <article>
+                    <strong>Pending Fraud:</strong>{" "}
+                    {fraudByStatus.submitted +
+                      fraudByStatus["under-review"]}
+                  </article>
+
+                  <article>
+                    <strong>Analyst Reports:</strong>{" "}
+                    {analystReports.length}
+                  </article>
                 </div>
               </section>
 
-              <section className="analyst-chart-grid">
-                <article className="panel analyst-chart-card">
-                  <h3>User Role Distribution</h3>
-                  <p>Role-wise account composition for governance planning.</p>
-                  <div className="result-bar-list">
-                    {roleBars.map((item) => (
-                      <div key={item.key} className="result-bar-row">
-                        <div className="result-bar-head">
-                          <strong>{item.label}</strong>
-                          <span>{item.value}</span>
-                        </div>
-                        <div className="result-bar-track">
-                          <div
-                            className="result-bar-fill"
-                            style={{ "--bar-width": `${buildPercent(item.value, users.length)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
+              <section className="panel">
+                <h3>User Role Distribution</h3>
 
-                <article className="panel analyst-chart-card">
-                  <h3>Fraud Workflow Status</h3>
-                  <p>Case progression from submission to closure.</p>
-                  <div className="result-bar-list">
-                    {fraudBars.map((item) => (
-                      <div key={item.key} className="result-bar-row">
-                        <div className="result-bar-head">
-                          <strong>{item.label}</strong>
-                          <span>{item.value}</span>
-                        </div>
-                        <div className="result-bar-track">
-                          <div
-                            className="result-bar-fill alt"
-                            style={{ "--bar-width": `${buildPercent(item.value, fraudReports.length)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                {roleBars.map((item) => (
+                  <div key={item.key}>
+                    <strong>{item.label}</strong>: {item.value}
                   </div>
-                </article>
+                ))}
               </section>
 
-              <section className="grid two-cols">
-                <article className="panel analyst-live-panel">
-                  <h3>Incident Severity Mix</h3>
-                  <p>Distribution of field incident urgency levels.</p>
-                  <div className="result-bar-list">
-                    {severityBars.map((item) => (
-                      <div key={item.key} className="result-bar-row">
-                        <div className="result-bar-head">
-                          <strong>{item.label}</strong>
-                          <span>{item.value}</span>
-                        </div>
-                        <div className="result-bar-track">
-                          <div
-                            className="result-bar-fill"
-                            style={{ "--bar-width": `${buildPercent(item.value, incidents.length)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
+              <section className="panel">
+                <h3>Fraud Workflow Status</h3>
 
-                <article className="panel analyst-live-panel">
-                  <h3>Top Risk Locations</h3>
-                  <p>Highest concentration of incidents and fraud complaints.</p>
-                  <div className="result-bar-list">
-                    {hotspots.length ? (
-                      hotspots.map((item) => (
-                        <div key={item.location} className="result-bar-row">
-                          <div className="result-bar-head">
-                            <strong>{item.location}</strong>
-                            <span>{item.count}</span>
-                          </div>
-                          <div className="result-bar-track">
-                            <div
-                              className="result-bar-fill alt"
-                              style={{ "--bar-width": `${buildPercent(item.count, hotspotMax)}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="muted">No location data available yet.</p>
-                    )}
+                {fraudBars.map((item) => (
+                  <div key={item.key}>
+                    <strong>{item.label}</strong>: {item.value}
                   </div>
-                </article>
+                ))}
+              </section>
+
+              <section className="panel">
+                <h3>Top Risk Locations</h3>
+
+                {hotspots.length ? (
+                  hotspots.map((item) => (
+                    <div key={item.location}>
+                      <strong>{item.location}</strong>: {item.count}
+                    </div>
+                  ))
+                ) : (
+                  <p>No location data available yet.</p>
+                )}
               </section>
 
               <section className="panel">
                 <h3>Recent Fraud Submissions</h3>
-                <p>Latest incoming cases for admin awareness.</p>
 
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Location</th>
-                        <th>Status</th>
-                        <th>Reporter</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentFraudReports.length ? (
-                        recentFraudReports.map((report) => (
-                          <tr key={report.id}>
-                            <td className="pro-strong-cell">{report.title}</td>
-                            <td>{report.location}</td>
-                            <td>
-                              <span className="pill">{report.status}</span>
-                            </td>
-                            <td>{report.createdBy}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="muted">
-                            No fraud submissions available.
-                          </td>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Location</th>
+                      <th>Status</th>
+                      <th>Reporter</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {recentFraudReports.length ? (
+                      recentFraudReports.map((report) => (
+                        <tr key={report.id}>
+                          <td>{report.title}</td>
+                          <td>{report.location}</td>
+                          <td>{report.status}</td>
+                          <td>{report.createdBy}</td>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4}>
+                          No fraud submissions available.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </section>
             </>
-          ) : null}
+          )}
 
-          {activeSection === "users" ? (
+          {activeSection === "users" && (
             <ManageUser
               users={users}
               currentUserId={currentUser?.id}
@@ -415,15 +355,15 @@ function AdminDashboard() {
               onUpdate={updateUser}
               onDelete={deleteUser}
             />
-          ) : null}
+          )}
 
-          {activeSection === "fraud" ? (
+          {activeSection === "fraud" && (
             <FraudReports
               reports={fraudReports}
               onUpdate={updateFraudReport}
               onDelete={deleteFraudReport}
             />
-          ) : null}
+          )}
         </main>
       </div>
     </div>

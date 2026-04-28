@@ -1,10 +1,11 @@
 import axios from "axios";
+import { API_BASE } from "./api";
 
 const apiClient = axios.create({
-  baseURL: "https://evmbackend-n3qk.onrender.com",
+  baseURL: API_BASE,
   headers: {
-    "Content-Type": "application/json"
-  }
+    "Content-Type": "application/json",
+  },
 });
 
 export default apiClient;
