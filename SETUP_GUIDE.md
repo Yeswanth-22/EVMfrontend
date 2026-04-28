@@ -120,11 +120,11 @@ mysql -u root -p election_evm -e "SELECT 1;"
 1. Click "Create Credentials" → "OAuth 2.0 Client ID"
 2. Choose "Web application"
 3. Set Authorized JavaScript origins:
-   - `http://localhost:8080`
+  - `${API_URL}`
    - `http://localhost:3000`
    - `http://localhost:5173`
 4. Set Authorized redirect URIs:
-   - `http://localhost:8080/api/login/oauth2/code/google`
+  - `${API_URL}/api/login/oauth2/code/google`
    - `http://localhost:3000/oauth2/redirect`
    - `http://localhost:5173/oauth2/redirect`
 5. Click "Create"
@@ -202,7 +202,7 @@ java -jar target/evm-backend-1.0.0.jar
 ### Step 3: Verify Backend is Running
 
 ```bash
-curl http://localhost:8080/api
+curl ${API_URL}/api
 ```
 
 Response should show API endpoints or a default page.
@@ -226,10 +226,10 @@ Edit your React app's API configuration:
 
 ```javascript
 // src/config/api.js
-export const API_BASE_URL = 'http://localhost:8080/api';
+export const API_BASE_URL = `${API_URL}/api`;
 
 // Or set in .env
-VITE_API_URL=http://localhost:8080/api
+VITE_API_URL=${API_URL}/api
 ```
 
 ### Step 2: Update CORS Settings
@@ -245,7 +245,7 @@ corsConfiguration.addAllowedOrigin("http://your-frontend-url");
 
 ```bash
 # Register a new user
-curl -X POST http://localhost:8080/api/auth/register \
+curl -X POST ${API_URL}/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -263,7 +263,7 @@ curl -X POST http://localhost:8080/api/auth/register \
 
 #### 1. Register User
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
+curl -X POST ${API_URL}/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "citizen@test.com",
@@ -277,7 +277,7 @@ curl -X POST http://localhost:8080/api/auth/register \
 
 #### 2. Login
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST ${API_URL}/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "citizen@test.com",
@@ -292,12 +292,12 @@ TOKEN="eyJhbGciOiJIUzUxMiJ9..." # From login response
 
 # Protected endpoint
 curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/auth/me
+  ${API_URL}/api/auth/me
 ```
 
 ### Test Elections Endpoint
 ```bash
-curl http://localhost:8080/api/elections
+curl ${API_URL}/api/elections
 ```
 
 ### Load Sample Data

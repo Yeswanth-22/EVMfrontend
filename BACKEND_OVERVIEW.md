@@ -141,7 +141,7 @@ Tomcat started on port(s): 8080
 
 ### 5. Verify Installation
 
-Open browser and go to: `http://localhost:8080/api/elections`
+Open browser and go to: `${API_URL}/api/elections`
 
 Should return JSON array (empty initially): `[]`
 
@@ -152,9 +152,9 @@ Should return JSON array (empty initially): `[]`
 3. Enable Google+ API
 4. Create OAuth 2.0 credentials (Web app)
 5. Add authorized URIs (localhost versions):
-   - `http://localhost:8080`
+  - `${API_URL}`
 6. Add redirect URIs:
-   - `http://localhost:8080/api/login/oauth2/code/google`
+  - `${API_URL}/api/login/oauth2/code/google`
 7. Copy Client ID & Secret to `application.yml`
 
 ## 📱 API Endpoints
@@ -274,7 +274,7 @@ PUT /api/fraud-reports/{reportId}/status?status=RESOLVED&resolution=...
 1. **Set API URL:**
    ```javascript
    // src/config/api.js
-   const API_URL = 'http://localhost:8080/api';
+  const API_URL = `${API_URL}/api`;
    ```
 
 2. **Store JWT Token:**

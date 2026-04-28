@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { API_URL } from "../api";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || `${API_URL}/api`).replace(/\/$/, "");
 const AUTH_BASE = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE;
 const AUTH_STORAGE_KEY = "ems_auth_v2";
 const TOKEN_REFRESH_THRESHOLD = 60000; // Refresh token 1 minute before expiry
@@ -166,7 +167,8 @@ export const AuthProvider = ({ children }) => {
         }
 
         return payload;
-      } catch {
+      } catch (error) {
+        console.error("refreshTokenInternal error:", error);
         return null;
       }
     },
@@ -211,8 +213,9 @@ export const AuthProvider = ({ children }) => {
         }
 
         return payload;
-      } catch {
-        return asFailure("Unable to connect to backend. Check if API server is running.");
+      } catch (error) {
+        console.error("request error:", error);
+        return asFailure(error?.response?.data?.message || "Unable to connect to backend. Please check server connection.");
       }
     },
     [token]
@@ -253,8 +256,9 @@ export const AuthProvider = ({ children }) => {
         }
 
         return payload;
-      } catch {
-        return asFailure("Unable to connect to backend. Check if API server is running.");
+      } catch (error) {
+        console.error("uploadFormData error:", error);
+        return asFailure(error?.response?.data?.message || "Unable to connect to backend. Please check server connection.");
       }
     },
     [token]
@@ -332,14 +336,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const sendRegistrationOtp = async (email) => {
-    return request("/auth/otp/send", {
+    return request("/auth/send-otp", {
       method: "POST",
       body: JSON.stringify({ email }),
     });
   };
 
   const verifyRegistrationOtp = async (email, otp) => {
-    return request("/auth/otp/verify", {
+    return request("/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify({ email, otp }),
     });
@@ -369,7 +373,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithGoogle = () => {
-    window.location.assign(`${AUTH_BASE}/oauth2/authorization/google`);
+    // Use centralized API_URL and redirect to backend OAuth endpoint
+    window.location.href = `${API_URL}/oauth2/authorization/google`;
   };
 
   const completeOAuthLogin = async (oauthToken) => {
