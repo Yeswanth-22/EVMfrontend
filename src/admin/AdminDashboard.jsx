@@ -26,6 +26,7 @@ function AdminDashboard() {
   const {
     users,
     currentUser,
+    token,
     dashboardStats,
     incidents,
     fraudReports,
@@ -38,6 +39,7 @@ function AdminDashboard() {
   } = useContext(AuthContext);
 
   const [activeSection, setActiveSection] = useState("overview");
+  const [showDebug, setShowDebug] = useState(false);
 
   const usersByRole = useMemo(
     () =>
@@ -198,6 +200,27 @@ function AdminDashboard() {
         />
 
         <main className="dashboard-main">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => setShowDebug((s) => !s)}
+              title="Toggle debug view"
+            >
+              {showDebug ? "Hide Debug" : "Show Debug"}
+            </button>
+          </div>
+
+          {showDebug ? (
+            <section className="panel" style={{ marginBottom: "1rem" }}>
+              <h4>Debug: Auth Context</h4>
+              <div style={{ maxHeight: 240, overflow: "auto", background: "#0b1220", color: "#d6e6ff", padding: "0.75rem", borderRadius: 6 }}>
+                <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
+{JSON.stringify({ token, currentUser, dashboardStats, usersCount: users.length, incidentsCount: incidents.length, fraudCount: fraudReports.length, analystCount: analystReports.length }, null, 2)}
+                </pre>
+              </div>
+            </section>
+          ) : null}
           {activeSection === "overview" ? (
             <>
               <section className="panel analyst-overview-panel">
