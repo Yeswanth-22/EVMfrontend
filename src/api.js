@@ -1,5 +1,7 @@
+// src/api.js
+// KEEP THIS FILE EXACTLY LIKE THIS
+
 export const API_URL = "https://evmbackend-n3qk.onrender.com";
+export const API_BASE = `${API_URL}/api`;
 
-const API_BASE_URL = API_URL;
-
-export default API_BASE_URL;
+export default API_URL;
