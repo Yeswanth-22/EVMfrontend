@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { API_URL } from "../api";
 
 const initialForm = {
   name: "",
@@ -28,6 +29,7 @@ function Register() {
     setLoadingOtp(true);
     setError("");
     setInfo("");
+    console.debug("Send OTP ->", `${API_URL}/api/auth/send-otp`, { email: form.email });
     const result = await sendRegistrationOtp(form.email);
     setLoadingOtp(false);
 
@@ -49,6 +51,7 @@ function Register() {
     setLoadingOtp(true);
     setError("");
     setInfo("");
+    console.debug("Verify OTP ->", `${API_URL}/api/auth/verify-otp`, { email: form.email, otp: form.otp });
     const result = await verifyRegistrationOtp(form.email, form.otp);
     setLoadingOtp(false);
 
@@ -69,6 +72,8 @@ function Register() {
       return;
     }
 
+    // Avoid logging passwords; log email and role for debugging
+    console.debug("Register ->", `${API_URL}/api/auth/register`, { email: form.email, role: form.role });
     const result = await register(form);
 
     if (!result.success) {
