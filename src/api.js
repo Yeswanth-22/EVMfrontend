@@ -12,7 +12,7 @@
 // VITE_API_URL=https://evmbackend-n3qk.onrender.com
 
 export const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8080";
+  import.meta.env.VITE_API_URL || "https://sec2sdp23-emsbackendfinal-production.up.railway.app";
 
 // Main API base
 export const API_BASE = `${API_URL}/api`;
