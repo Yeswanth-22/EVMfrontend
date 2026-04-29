@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 function Login() {
-  const { login, loginWithGoogle } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -52,10 +52,6 @@ function Login() {
 
         <button className="btn btn-primary" type="submit">
           Login
-        </button>
-
-        <button className="btn btn-outline" type="button" onClick={loginWithGoogle}>
-          Continue with Google
         </button>
 
         <p className="muted">

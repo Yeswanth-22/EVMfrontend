@@ -27,8 +27,5 @@ export const AUTH_API = {
   ME: `${API_BASE}/auth/me`,
 };
 
-// Google OAuth
-export const GOOGLE_AUTH_URL = `${API_URL}/oauth2/authorization/google`;
-
 // Default export
 export default API_URL;

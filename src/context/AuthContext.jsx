@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_URL, API_BASE, GOOGLE_AUTH_URL } from "../api";
+import { API_URL, API_BASE } from "../api";
 
 const AUTH_STORAGE_KEY = "ems_auth_v2";
 const TOKEN_REFRESH_THRESHOLD = 60000; // 1 min before expiry
@@ -323,10 +323,6 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  const loginWithGoogle = () => {
-    window.location.href = GOOGLE_AUTH_URL;
-  };
-
   const logout = () => {
     if (refreshTimerRef.current) {
       clearTimeout(refreshTimerRef.current);
@@ -383,7 +379,6 @@ export const AuthProvider = ({ children }) => {
       sendRegistrationOtp,
       verifyRegistrationOtp,
       login,
-      loginWithGoogle,
       logout,
     }),
     [

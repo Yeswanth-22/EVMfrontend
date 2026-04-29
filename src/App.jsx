@@ -7,7 +7,6 @@ import SecureRole from "./components/SecureRole";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import OAuthCallback from "./pages/OAuthCallback";
 
 import AdminDashboard from "./admin/AdminDashboard";
 import CitizenDashboard from "./citizen/CitizenDashboard";
@@ -25,7 +24,6 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/oauth2/callback" element={<OAuthCallback />} />
 
       <Route
         path="/admin"

@@ -2,13 +2,7 @@ import axios from "axios";
 import { API_BASE } from "./api";
 
 // ==========================================
-// Production-safe Axios Client
-// Works for:
-// ✅ Localhost
-// ✅ Vercel Frontend
-// ✅ Render Backend
-// ✅ JWT Auth
-// ✅ Google OAuth Cookies
+// Production-safe Axios client for localhost, Vercel, Railway, and JWT auth.
 // ==========================================
 
 const apiClient = axios.create({
@@ -19,7 +13,7 @@ const apiClient = axios.create({
     Accept: "application/json",
   },
 
-  // Required for cookies / OAuth / secure sessions
+  // Required for secure session cookies when the backend sends them.
   withCredentials: true,
 
   // Prevent hanging requests
